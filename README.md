@@ -37,7 +37,7 @@ Make sure you have Python 3 installed.
 
 ```bash
 git clone https://github.com/dionmulaj/Boryoku.git
-cd boryoku
+cd Boryoku
 pip install -r requirements.txt
 ```
 ---
