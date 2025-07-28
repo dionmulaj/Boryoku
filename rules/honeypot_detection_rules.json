@@ -1,0 +1,242 @@
+{
+  "contains": {
+    "cowrie": 10,
+    "kippo": 10,
+    "dionaea": 10,
+    "glastopf": 10,
+    "conpot": 10,
+    "snare": 8,
+    "shockpot": 8,
+    "elastichoney": 8,
+    "artillery": 6,
+    "honeytrap": 6,
+    "honeyd": 9,
+    "honeypot": 10,
+    "for authorized use only": 5,
+    "this is a secure system": 5,
+    "surveillance": 4,
+    "logging enabled": 4,
+    "unauthorized access": 5,
+    "monitoring": 4,
+    "decoy": 6,
+    "fake": 6,
+    "emulation": 4,
+    "nmap": 2,
+    "admin panel": 5,
+    "terminal access": 2,
+    "telnet server": 2,
+    "security appliance": 3,
+    "welcome to": 3,
+    "danger": 3,
+    "backdoor": 7,
+    "remote admin": 4,
+    "research": 3,
+    "python http server": 4,
+    "simplehttpserver": 4,
+    "httpd": 1,
+    "nginx": 1,
+    "lighttpd": 1,
+    "apache": 1,
+    "iis": 1,
+    "windows 5.1": 3,
+    "windows 6.1": 3,
+    "inetutils": 3,
+    "ftp ready": 2,
+    "default ftp server": 3,
+    "samba": 2,
+    "netbios": 1,
+    "ftpd": 2,
+    "vsftpd": 2,
+    "serv-u": 2,
+    "proftpd": 2,
+    "pure-ftpd": 2,
+    "smbserver": 2,
+    "nginx/1.10.3": 4,
+    "lighttpd/1.4.35": 4,
+    "apache/2.2.22": 4,
+    "python/3.x": 2,
+    "twisted": 3,
+    "nodejs": 2,
+    "java embedded server": 3
+  },
+
+  "length": {
+    "min": 300,
+    "score": 7
+  },
+
+  "http": {
+    "max_allowed_200s": 0.65,
+    "score": 12,
+    "suspicious_paths": [
+      "admin",
+      "login",
+      "dashboard",
+      "config",
+      "setup",
+      "shell",
+      "cmd",
+      "test",
+      "debug",
+      "dev",
+      "ftp",
+      "panel",
+      "upload",
+      "download",
+      "honey",
+      "trap",
+      "data",
+      "monitor",
+      "secret",
+      "hidden",
+      "private",
+      "secure",
+      "cgi-bin"
+    ],
+    "suspicious_path_score": 1
+  },
+
+  "ftp": {
+    "fake_file_patterns": {
+      "files": [
+        "honeypot",
+        "logfile",
+        "admin_panel",
+        "backdoor.txt",
+        "config.ini",
+        "readme_honey.txt",
+        "fake_data",
+        "passwords.csv",
+        "secrets.txt",
+        "log.csv",
+        "netstat.txt",
+        "networkdump",
+        "syslog.log",
+        "hidden.txt"
+      ],
+      "score": 5
+    },
+    "unrealistically_clean": {
+      "min_count": 0,
+      "score": 3
+    }
+  },
+
+  "smb": {
+    "only_suspicious_shares": {
+      "shares": [
+        "IPC$",
+        "ADMIN$",
+        "print$",
+        "SHARE",
+        "PUBLIC",
+        "TEST",
+        "LOGS",
+        "CONFIG",
+        "TMP",
+        "FAKE"
+      ],
+      "score": 5
+    },
+    "fake_files": {
+      "files": [
+        "honeypot",
+        "admin_logs",
+        "setup.bat",
+        "ransom.txt",
+        "readme.txt",
+        "do_not_open.txt",
+        "surveillance.log",
+        "audit.log",
+        "security.db",
+        "trapdata.txt",
+        "bait.exe"
+      ],
+      "score": 5
+    }
+  },
+
+  "anomalies": {
+    "os_service_mismatch": {
+      "patterns": [
+        {
+          "os": "Windows",
+          "services": ["nginx", "lighttpd", "apache"]
+        },
+        {
+          "os": "Linux",
+          "services": ["IIS", "Windows FTP Server"]
+        }
+      ],
+      "score": 6
+    },
+    "too_fast_response_ms": {
+      "threshold": 5,
+      "score": 4
+    },
+    "uptime_days_threshold": {
+      "days": 999,
+      "score": 3
+    },
+    "reverse_dns_fakehost": {
+      "patterns": [
+        "honeypot",
+        "trap",
+        "simhost",
+        "simnet",
+        "lab",
+        "fakehost"
+      ],
+      "score": 6
+    }
+  },
+
+  "headers": {
+    "contains": {
+      "server": {
+        "twisted": 4,
+        "cowrie": 10,
+        "glastopf": 10,
+        "honeypot": 10,
+        "python": 2,
+        "unknown": 2,
+        "httpd/1.0": 3,
+        "fake": 5
+      },
+      "x-powered-by": {
+        "honeypot": 10,
+        "php/5.4.0": 3,
+        "perl": 2,
+        "python": 2
+      }
+    }
+  },
+
+  "ssl": {
+    "self_signed": {
+      "score": 4
+    },
+    "invalid_hostname": {
+      "score": 4
+    },
+    "expired": {
+      "score": 4
+    }
+  },
+
+  "hostname": {
+    "suspicious_patterns": {
+      "patterns": [
+        "lab",
+        "trap",
+        "honey",
+        "test",
+        "simhost",
+        "decoy",
+        "monitor",
+        "logger"
+      ],
+      "score": 5
+    }
+  }
+}
