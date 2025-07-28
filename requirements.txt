@@ -1,2 +1,5 @@
-colorama
 impacket
+colorama
+tqdm
+requests
+httpx
