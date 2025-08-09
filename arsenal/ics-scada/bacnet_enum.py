@@ -1,5 +1,5 @@
 """
-Detects BACnet/IP on hosts and attempts basic enumeration.
+Detects BACnet on hosts and attempts basic enumeration.
 """
 import socket
 PORTS = [47808]
