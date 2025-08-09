@@ -1,0 +1,1 @@
+If option "--visualize" is used as an argument on the tool, the html interactive mapping results will appear in this directory.

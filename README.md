@@ -1,33 +1,54 @@
 <p align="center">
-  <img src="Boryoku-Logo.PNG" alt="Boryoku Logo" width="400"/>
+  <img src="boryoku-framework.png" alt="Boryoku Logo" width="400"/>
 </p>
 
-# Bōryoku V2
+# Bōryoku Framework - v3.0.0
 
-![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)
+![Python](https://img.shields.io/badge/Python-3%2B-blue.svg)
 ![License](https://img.shields.io/github/license/dionmulaj/boryoku)
 ![Status](https://img.shields.io/badge/status-actively--maintained-brightgreen)
 
 ## 🔍 Overview
 
-**Bōryoku** is an advanced active enumeration and misconfiguration discovery tool tailored for red teamers, penetration testers, and security engineers. It specializes in scanning and fingerprinting services that commonly expose sensitive information when misconfigured.
+**Bōryoku** is an advanced reconnaissance, enumeration, misconfiguration, and deception discovery framework tailored for red teamers, penetration testers, and security engineers. It scans, fingerprints, and analyzes services for exposures.
 
-Built with modularity in mind, Bōryoku is designed to identify access controls, exposed directories, honeypots, AV/EDR/XDR/FW footprints, and device vendors in internal networks.
-
----
+**Bōryoku Framework introduces:**
+- **Decoy System:** A feature that targets and hunts blue teams by deploying 3 different honeypots (HTTP, SSH, LDAP) while performing scans. It offers anti-detection through dynamic randomized banner, header and message patterns.
+- **ARSENAL:** An Extended Plugin Modularity architecture which offers reconnaissance and enumeration for ICS/SCADA, Docker, Kubernetes, Active Directory and much more.
+- **CVE Engine:** A vulnerability detection engine for network services and web applications.
+- **VPN Detection:** Ability to detect VPN endpoints.
+- **Network Visualization:** Visualizes all the scanning results.
 
 ## ⚙️ Features
 
-- **🗂️ SMB guest access detection and share browsing:** <br>
+- **🗂️ SMB guest access detection and share browsing**<br>
 Detect open SMB shares accessible without authentication and list their contents.
-- **📁 FTP anonymous login and file listing:** <br>
+- **📁 FTP anonymous login and file listing**<br>
 Log in anonymously to FTP servers and enumerate their contents.
-- **🌐 HTTP(S) directory brute-forcing using wordlists:** <br>
+- **🌐 HTTP(S) directory enumeration using wordlists**<br>
 Discover exposed files and folders via smart wordlist-based probing.
-- **🕵️ Honeypot rule-based scoring engine:** <br>
+- **🕵️ Honeypot rule-based detection and scoring engine**<br>
 Detect honeypot systems using banners, file patterns, and behavioral rules.
 - **🧬 AV/EDR/XDR/Firewall port and signature-based detection:** <br>
 Identify common defense mechanisms based on known fingerprints.
+- **🧩 ARSENAL - Extended Plugin Modularity:** <br>
+  - ICS/SCADA (Modbus, DNP3, BACnet, S7comm)
+  - Databases (MySQL, MSSQL, PostgreSQL, Oracle)
+  - Docker and Kubernetes
+  - Kerberos
+  - LDAP
+  - LLMNR/NBNS
+  - mDNS
+  - NetBIOS
+  - Redis
+  - SNMP
+  - SSDP/UPnP.
+- **🦠 CVE Engine:** <br>
+  - Automated vulnerability checks for web and network services.
+- **🎭 Decoy System:** <br>
+  - HTTP, SSH, LDAP decoy servers for interaction logging.
+- **📶 VPN Detection:** <br>
+  - Ability to detect VPN endpoints through port patterns.
 - **🏷️ MAC-to-vendor fingerprinting:** <br>
 Resolve hardware vendors using MAC address prefixes and ARP responses.
 - **🕶️ Stealth mode with randomized delays:** <br>
@@ -36,6 +57,8 @@ Evade basic detection systems by randomizing request timing.
 Automatically push scan results to collaboration channels for team visibility.
 - **🧾 Output results saving:** <br>
 Save clean and color-free results for reports, automation, or offline review.
+- **🗺️ Network Visualization:** <br>
+  - Interactive network/service mapping.
 
 ---
 
@@ -58,90 +81,50 @@ Bōryoku leverages an extensive and growing detection database to identify secur
 | **EDR**    | ~10         |
 | **XDR**    | ~4          |
 | **Firewall** | 13        |
-
-### 🧠 Honeypot Detection Logic
-
-Detection is based on:
-- Suspicious banners
-- Known fake files or shares
-- High ratio of `HTTP 200 OK` responses to sensitive paths
-- Unrealistically clean FTP/SMB listings
-
-Rules are fully customizable in `rules/honeypot_detection_rules.json`.
-
-This rich signature set allows **Bōryoku** to go beyond basic service checks and deliver valuable context about defensive tooling and misconfiguration exposure within target environments.
-
----
-
-## 📦 Installation
-
-```bash
-git clone https://github.com/dionmulaj/boryoku.git
-cd boryoku
-pip3 install -r requirements.txt
-```
-
-Ensure you have the following:
-- Python 3.8+
-- Linux/macOS
-
----
-
-## 🚀 Usage
-
-### Basic Command
-
-```bash
-python3 boryoku.py -t 192.168.1.0/24 -smb -ftp -http
-```
-
-### Full Scan with Stealth and AV Detection
-
-```bash
-python3 boryoku.py -t 10.0.0.0/24 -all --stealth --anti-virus -o results.txt
-```
-
----
-
-## 🧠 Arguments
-
-| Flag | Description |
-|------|-------------|
-| `-t` | Target IP or CIDR range |
-| `-smb` | Enable SMB guest access scan |
-| `-ftp` | Enable FTP anonymous access scan |
-| `-http` | Enable HTTP(S) directory scan |
-| `-all` | Shortcut for all scans |
-| `--stealth` | Introduce delays between scans |
-| `--anti-virus` | Detect common AV/EDR/FW ports |
-| `-o` | Save output to text file |
-| `--discord` | Send output to Discord webhook |
-| `--slack` | Send output to Slack webhook |
-
----
+| **Plugins** | 12+        |
 
 ## 🧱 Folder Structure
 
 ```
-boryoku/
+Boryoku/
+├── boryoku.py
+├── requirements.txt
+├── README.md
+├── boryoku-framework.png
+├── arsenal/
+│   ├── db-enum/ (mssql_enum.py, mysql_enum.py, oracle_enum.py, postgres_enum.py)
+│   ├── docker-k8s/ (docker_k8s_enum.py)
+│   ├── ics-scada/ (bacnet_enum.py, dnp3_enum.py, modbus_enum.py, s7_enum.py)
+│   ├── kerberos/ (...kerberos plugins...)
+│   ├── ldap/ (ldap-ad-enum.py)
+│   ├── llmnr-nbns/ (llmnr-nbns.py)
+│   ├── mdns/ (mdns.py)
+│   ├── netbios/ (netbios-name.py)
+│   ├── redis/ (redis.py)
+│   ├── snmp/ (snmp.py)
+│   ├── ssdp-upnp/ (ssdp-upnp-enum.py)
+├── cve-check/
+│   ├── network/ (...network CVE scripts...)
+│   ├── web/ (...web CVE scripts...)
+├── decoy/
+│   ├── http_decoy.py
+│   ├── ldap_decoy.py
+│   ├── ssh_decoy.py
+├── rules/
+│   └── honeypot_detection_rules.json
 ├── signatures/
 │   ├── av_ports.json
 │   ├── av_signatures.json
-│   └── oui_vendors.json
-├── rules/
-│   └── honeypot_detection_rules.json
-├── wordlists/
-│   └── dirs.txt
+│   ├── oui_vendors.json
+│   └── vpn-check.json
 ├── webhooks/
 │   ├── discord.txt
 │   └── slack.json
-├── examples/
-│   ├── av-detection.png
-│   └── honeypot-detection.png
-└── boryoku.py
-└── requirements.txt
-└── README.md
-└── Boryoku-Logo.PNG
+├── wordlists/
+│   ├── dirs.txt
+│   └── usernames.txt
+├── mapping/
+│   └── *.html (network visualizations)
 ```
 
 ---
@@ -161,25 +144,34 @@ boryoku/
 
 ## 🖼️ Examples
 <p align="center">
-  <img src="examples/av-detection.png" alt="AV Detection" width="300"/>
+  <img src="examples/mapping.png" alt="Mapping" width="300"/>
+</p>
+<br>
+<p align="center">
+  <img src="examples/arsenal.png" alt="Arsenal" width="300"/>
+</p>
+<br>
+<p align="center">
+  <img src="examples/decoy.png" alt="Decoy" width="300"/>
 </p>
 <br>
 <p align="center">
   <img src="examples/honeypot-detection.png" alt="Honeypot Detection" width="300"/>
 </p>
+<br>
+<p align="center">
+  <img src="examples/av-detection.png" alt="AV Detection" width="300"/>
+</p>
+
 
 ---
 
 ## 🛠️ Troubleshooting
-1. Run the tool as **sudo** for proper ARP - MAC Address Identification feature usage. <br>
-2. If you encounter errors while running the tool, it can most likely be because of Impacket misconfiguration.
-To fix such an issue, try running the command below:
+1. Run the tool as **sudo** for proper ARP - MAC Address Identification feature usage.
+2. If you encounter errors, check Impacket installation and Python dependencies.
+3. For plugin errors, ensure all arsenal and cve-check scripts are present and compatible.
+4. It is highly recommended to be in the same directory as the tool when executing it.
 
-```bash
-sudo apt install python3-pip python3-dev build-essential libssl-dev libffi-dev
-```
-
----
 
 ## 📚 Credits
 

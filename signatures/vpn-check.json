@@ -1,0 +1,20 @@
+{
+  "vpn_ports": {
+    "1194": "OpenVPN",
+    "500": "IPsec IKE",
+    "4500": "IPsec NAT-T",
+    "1701": "L2TP",
+    "1723": "PPTP",
+    "60443": "Fortinet SSL VPN",
+    "51820": "WireGuard",
+    "5555": "SoftEther",
+    "1195": "OpenVPN (alt)",
+    "1196": "OpenVPN (alt)",
+    "1197": "OpenVPN (alt)",
+    "1198": "OpenVPN (alt)",
+    "1199": "OpenVPN (alt)",
+    "5000": "Cisco VPN",
+    "10000": "IKEv2 (alt)",
+    "450": "IPsec (alt)"
+  }
+}

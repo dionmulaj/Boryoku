@@ -1,6 +1,7 @@
 import sys
 import socket
 import argparse
+import netifaces
 from ipaddress import ip_network
 from impacket.smbconnection import SMBConnection
 from colorama import init, Fore, Style
@@ -16,14 +17,18 @@ import re
 import json
 import random
 import time
-import uuid
 import subprocess
+
+try:
+    from pyvis.network import Network
+except ImportError:
+    Network = None
 
 
 init(autoreset=True)
 
 AUTHOR_INFO = f"""
-{Fore.CYAN}Bōryoku V2 - An Advanced Modular Red Team Tool
+{Fore.CYAN}Bōryoku Framework - V3.0.0
 Author: Dion Mulaj
 GitHub: https://github.com/dionmulaj{Style.RESET_ALL}
 """
@@ -387,16 +392,39 @@ async def check_http_critical_files_async(host, use_https=False, stealth=False):
             results[host].setdefault("HTTPS" if use_https else "HTTP", []).extend(lines)
         return
 
-    async with httpx.AsyncClient(verify=False, timeout=5) as client:
-        server_header = "N/A"  
-
-        
+    async with httpx.AsyncClient(verify=False, timeout=5, follow_redirects=True) as client:
+        server_header = "N/A"
+        meta_generator = None
+        header_error = None
         try:
             root_resp = await client.head(base_url)
             server_header = root_resp.headers.get('Server', 'N/A')
             lines.append(f"{Fore.CYAN}[i] HTTP Server: {server_header}{Style.RESET_ALL}")
+        except Exception as e:
+            header_error = str(e)
+            
+            if 'SSLV3_ALERT_HANDSHAKE_FAILURE' in header_error or 'ssl/tls alert handshake failure' in header_error:
+                lines.append(f"{Fore.YELLOW}[!] TLS handshake failed for {base_url}. Cannot enumerate HTTPS headers.{Style.RESET_ALL}")
+            else:
+                
+                try:
+                    root_get_resp = await client.get(base_url)
+                    server_header = root_get_resp.headers.get('Server', 'N/A')
+                    lines.append(f"{Fore.CYAN}[i] HTTP Server (GET fallback): {server_header}{Style.RESET_ALL}")
+                except Exception as e2:
+                    get_error = str(e2)
+                    lines.append(f"{Fore.YELLOW}[!] Could not retrieve HTTP(S) headers from {base_url}: {header_error} | GET fallback error: {get_error}{Style.RESET_ALL}")
+
+        
+        try:
+            root_get_resp = await client.get(base_url)
+            html = root_get_resp.text
+            meta_match = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)["\']', html, re.IGNORECASE)
+            if meta_match:
+                meta_generator = meta_match.group(1)
+                lines.append(f"{Fore.CYAN}[i] Meta Generator: {meta_generator}{Style.RESET_ALL}")
         except Exception:
-            lines.append(f"{Fore.YELLOW}[!] Could not retrieve HTTP(S) headers from {base_url}{Style.RESET_ALL}")
+            pass
 
         tasks = []
         for path in HTTP_WORDLIST:
@@ -414,15 +442,15 @@ async def check_http_critical_files_async(host, use_https=False, stealth=False):
                 lines.append(f"{Fore.GREEN}[+] Found {path} on {resp.url}{Style.RESET_ALL}")
 
         
-        score, details = calculate_honeypot_score(protocol, server_header, results=responses)
+        banner_for_scoring = meta_generator if meta_generator else server_header
+        score, details = calculate_honeypot_score(protocol, banner_for_scoring, results=responses)
         lines.append(honeypot_verdict(score))
         if details:
             lines.append(f"{Fore.MAGENTA}[Honeypot Details]:{Style.RESET_ALL}")
             for d in details:
                 lines.append(f"  - {d}")
 
-        
-        av_score, av_details = calculate_av_fingerprint(protocol, server_header)
+        av_score, av_details = calculate_av_fingerprint(protocol, banner_for_scoring)
         if av_details:
             lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL}{Fore.RED} AV/EDR/FW FINGERPINT DETECTED!!!!!{Style.RESET_ALL}")
             for d in av_details:
@@ -507,21 +535,50 @@ def main():
 
     print(AUTHOR_INFO)
 
-    parser = argparse.ArgumentParser(
-        epilog='Example: python3 boryoku.py -t 192.168.1.0/24 -smb -ftp -http --stealth -o results.txt'
-    )
-    parser.add_argument('-t', required=True, metavar='TARGET', help='Target IP / Range in CIDR (e.g. 192.168.1.25 OR 192.168.1.0/24)')
-    parser.add_argument('-smb', action='store_true', help='Scan for SMB guest access')
-    parser.add_argument('-ftp', action='store_true', help='Scan for FTP anonymous access')
-    parser.add_argument('-http', action='store_true', help='Scan for HTTP(S) critical files')
-    parser.add_argument('-all', action='store_true', help='Scan SMB, FTP, and HTTP(S)')
-    parser.add_argument("--stealth", action="store_true", help="Enable stealth mode with randomized packet delays")
-    parser.add_argument('--anti-virus', action='store_true', help='Detect AV/EDR/FW ports')
-    parser.add_argument('-o', '--output', help='Save output to the specified text file')
-    parser.add_argument('--discord', action='store_true', help='Send results to Discord webhook')
-    parser.add_argument('--slack', action='store_true', help='Send results to Slack webhook')
-    args = parser.parse_args()
 
+
+    parser = argparse.ArgumentParser(
+        epilog='Example: python3 boryoku.py -t 192.168.1.0/24 -smb -ftp -http --kerberos --ldap --stealth -o results.txt'
+    )
+
+    general_group = parser.add_argument_group('GENERAL OPTIONS')
+    general_group.add_argument('-t', required=True, metavar='TARGET', help='Target IP / Range in CIDR (e.g. 192.168.1.25 OR 192.168.1.0/24)')
+    general_group.add_argument('-smb', action='store_true', help='Scan for SMB guest access')
+    general_group.add_argument('-ftp', action='store_true', help='Scan for FTP anonymous access')
+    general_group.add_argument('-http', action='store_true', help='Scan for HTTP(S) critical files')
+    general_group.add_argument('-all', action='store_true', help='Scan SMB, FTP, and HTTP(S)')
+    general_group.add_argument('--visualize', action='store_true', help='Generate network map visualization')
+    general_group.add_argument('-o', '--output', help='Save output to the specified text file')
+    general_group.add_argument('--discord', action='store_true', help='Send results to Discord webhook')
+    general_group.add_argument('--slack', action='store_true', help='Send results to Slack webhook')
+
+
+    operational_group = parser.add_argument_group('OPERATIONAL MODES')
+    operational_group.add_argument('--stealth', action='store_true', help='Enable stealth mode with randomized packet delays')
+    operational_group.add_argument('--anti-virus', action='store_true', help='Detect AV/EDR/FW ports')
+    operational_group.add_argument('--cve-check', action='store_true', help='Run CVE check scripts on discovered hosts')
+    operational_group.add_argument('--vpn-check', action='store_true', help='Check for VPN endpoints using port patterns')
+    operational_group.add_argument('--decoy-http', action='store_true', help='Run HTTP decoy server in background during scan')
+    operational_group.add_argument('--decoy-ssh', action='store_true', help='Run SSH decoy server in background during scan')
+    operational_group.add_argument('--decoy-ldap', action='store_true', help='Run LDAP decoy server in background during scan')
+    operational_group.add_argument('--all-decoys', action='store_true', help='Run all decoy servers (HTTP, SSH, LDAP) in background during scan')
+
+
+    plugin_group = parser.add_argument_group('PLUGINS')
+    plugin_group.add_argument('--kerberos', action='store_true', help='Enable Kerberos plugins')
+    plugin_group.add_argument('--ldap', action='store_true', help='Enable LDAP plugins')
+    plugin_group.add_argument('--llmnr-nbns', action='store_true', help='Enable LLMNR/NBNS plugins')
+    plugin_group.add_argument('--mdns', action='store_true', help='Enable mDNS plugins')
+    plugin_group.add_argument('--netbios', action='store_true', help='Enable NetBIOS plugins')
+    plugin_group.add_argument('--redis', action='store_true', help='Enable Redis plugins')
+    plugin_group.add_argument('--snmp', action='store_true', help='Enable SNMP plugins')
+    plugin_group.add_argument('--ssdp-upnp', action='store_true', help='Enable SSDP/UPnP plugins')
+    plugin_group.add_argument('--db-enum', action='store_true', help='Enable database enumeration plugins (MySQL, MSSQL, PostgreSQL, Oracle)')
+    plugin_group.add_argument('--docker-k8s', action='store_true', help='Enable Docker/Kubernetes API detection plugins')
+    plugin_group.add_argument('--ics-scada', action='store_true', help='Enable ICS/SCADA protocol detection plugins (Modbus, DNP3, BACnet, S7comm)')
+    plugin_group.add_argument('--all-plugins', action='store_true', help='Enable all plugins in arsenal/*/')
+
+    args = parser.parse_args()
     stealth_enabled = args.stealth
     anti_virus_enabled = args.anti_virus
 
@@ -533,19 +590,299 @@ def main():
         common_ports = {}
 
     
-    if not any([args.smb, args.ftp, args.http, args.all, args.anti_virus]):
-        print(f"{Fore.RED}[-] You must specify at least one scan mode: -smb, -ftp, -http, -all, or --anti-virus")
+    vpn_ports = {}
+    if getattr(args, 'vpn_check', False):
+        vpn_path = os.path.join(os.path.dirname(__file__), "signatures", "vpn-check.json")
+        try:
+            with open(vpn_path, "r") as f:
+                vpn_ports = json.load(f).get("vpn_ports", {})
+        except Exception as e:
+            print(f"{Fore.YELLOW}[!] Could not load vpn-check.json: {e}{Style.RESET_ALL}")
+
+    
+    
+    if not any([args.smb, args.ftp, args.http, args.all, args.anti_virus, args.vpn_check]):
+        print(f"{Fore.RED}[-] You must specify at least one scan mode: -smb, -ftp, -http, -all, --anti-virus, or --vpn-check")
         return
 
+    import socket
     try:
         ip_list = [str(ip) for ip in ip_network(args.t, strict=False)]
     except ValueError:
         print(f"{Fore.RED}[-] Invalid CIDR range")
         return
+    
+    local_ips = set()
+    
+    try:
+        import netifaces
+        for iface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(iface)
+            for family in (netifaces.AF_INET, netifaces.AF_INET6):
+                for addr in addrs.get(family, []):
+                    ip = addr.get('addr')
+                    if ip:
+                        local_ips.add(ip)
+    except Exception:
+        
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            local_ips.add(s.getsockname()[0])
+            s.close()
+        except Exception:
+            pass
+    
+    local_ips.add('127.0.0.1')
+    local_ips.add('::1')
+    
+    ip_list = [ip for ip in ip_list if ip not in local_ips]
 
     scan_smb = args.smb or args.all
     scan_ftp = args.ftp or args.all
     scan_http = args.http or args.all
+
+    
+    if args.vpn_check and not any([scan_smb, scan_ftp, scan_http, args.anti_virus]):
+        
+        try:
+            ip_list = [str(ip) for ip in ip_network(args.t, strict=False)]
+        except ValueError:
+            print(f"{Fore.RED}[-] Invalid CIDR range")
+            return
+        
+        vpn_path = os.path.join(os.path.dirname(__file__), "signatures", "vpn-check.json")
+        vpn_ports = {}
+        try:
+            with open(vpn_path, "r") as f:
+                vpn_ports = json.load(f).get("vpn_ports", {})
+        except Exception as e:
+            print(f"{Fore.YELLOW}[!] Could not load vpn-check.json: {e}{Style.RESET_ALL}")
+        ports_to_check = [int(p) for p in vpn_ports.keys()]
+        open_hosts = {port: [] for port in ports_to_check}
+        print(f"{Fore.MAGENTA}[~] Initiating VPN endpoint scan...{Style.RESET_ALL}")
+        with ThreadPoolExecutor(max_workers=100) as executor:
+            future_to_ip_port = {
+                executor.submit(is_port_open, ip, port): (ip, port)
+                for ip in ip_list for port in ports_to_check
+            }
+            futures = list(future_to_ip_port.keys())
+            with tqdm(total=len(futures), desc="Scanning for VPN ports") as pbar:
+                for future in as_completed(futures):
+                    ip, port = future_to_ip_port[future]
+                    if future.result():
+                        open_hosts[port].append(ip)
+                    pbar.update(1)
+        host_ports = {}
+        for port, hosts in open_hosts.items():
+            for host in hosts:
+                host_ports.setdefault(host, []).append(port)
+        
+        for host, ports in host_ports.items():
+            detected = []
+            for port in set(ports):
+                port_str = str(port)
+                if port_str in vpn_ports:
+                    detected.append(f"{port} ({vpn_ports[port_str]})")
+            if detected:
+                vpn_line = f"{Fore.CYAN}[VPN Endpoint Detected] {host} => {', '.join(detected)}{Style.RESET_ALL}"
+                if host not in results:
+                    results[host] = {}
+                results[host].setdefault("VPN-ENDPOINT", []).append(vpn_line)
+        
+        for host in sorted(results.keys()):
+            print("\n\n")
+            print(f"{Fore.CYAN}==========Host: {host}=========={Style.RESET_ALL}")
+            host_protocols = results[host]
+            if "VPN-ENDPOINT" in host_protocols:
+                print(f"{Fore.YELLOW}VPN Endpoint Detection:{Style.RESET_ALL}")
+                for line in host_protocols["VPN-ENDPOINT"]:
+                    print(f"    {line}")
+                print(f"{Fore.YELLOW}{'─'*35}{Style.RESET_ALL}")
+            else:
+                print(f"    {Fore.LIGHTBLACK_EX}• No VPN endpoints detected{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}{'─'*35}{Style.RESET_ALL}")
+        
+        def format_vpn_output(host, host_protocols):
+            lines = []
+            lines.append("")
+            lines.append("")
+            lines.append(f"==========Host: {host}==========")
+            lines.append("VPN Endpoint Detection:")
+            if "VPN-ENDPOINT" in host_protocols:
+                for line in host_protocols["VPN-ENDPOINT"]:
+                    lines.append(f"    {strip_ansi(line)}")
+            else:
+                lines.append("    • No VPN endpoints detected")
+            lines.append("─"*35)
+            lines.append("")
+            return "\n".join(lines)
+        if args.output:
+            with open(args.output, 'w') as f:
+                f.write("Bōryoku Framework - V3.0.0\n")
+                f.write("Author: Dion Mulaj\n")
+                f.write("GitHub: https://github.com/dionmulaj\n\n")
+                for host in sorted(results.keys()):
+                    host_protocols = results[host]
+                    f.write(format_vpn_output(host, host_protocols))
+            print(f"{Fore.YELLOW}[~] Results saved to {args.output}{Style.RESET_ALL}")
+        if args.discord:
+            webhook_url = None
+            webhook_file_path = os.path.join("webhooks", "discord.txt")
+            if os.path.exists(webhook_file_path):
+                with open(webhook_file_path, "r") as f:
+                    webhook_url = f.read().strip()
+            if webhook_url:
+                combined_output = []
+                for host in sorted(results.keys()):
+                    host_protocols = results[host]
+                    combined_output.append(format_vpn_output(host, host_protocols))
+                final_message = "\n".join(combined_output)
+                send_to_discord_webhook(final_message, webhook_url)
+        if args.slack:
+            slack_config_path = os.path.join("webhooks", "slack.json")
+            if os.path.exists(slack_config_path):
+                with open(slack_config_path, "r") as f:
+                    slack_cfg = json.load(f)
+                    slack_token = slack_cfg.get("bot_token")
+                    slack_channel = slack_cfg.get("channel_id")
+                    if slack_token and slack_channel:
+                        combined_output = []
+                        for host in sorted(results.keys()):
+                            host_protocols = results[host]
+                            combined_output.append(format_vpn_output(host, host_protocols))
+                        final_message = "\n".join(combined_output)
+                        send_message_to_slack(final_message[:40000], slack_token, slack_channel)
+        return
+
+
+
+    
+    import queue
+    decoy_logs = queue.Queue()
+    decoy_threads = []
+
+    def run_decoy(decoy_type, log_queue):
+        import importlib.util
+        import os
+        decoy_map = {
+            'http': 'decoy/http_decoy.py',
+            'ssh': 'decoy/ssh_decoy.py',
+            'ldap': 'decoy/ldap_decoy.py',
+        }
+        script_path = decoy_map.get(decoy_type)
+        if not script_path or not os.path.exists(script_path):
+            return
+        spec = importlib.util.spec_from_file_location(f"{decoy_type}_decoy", script_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        if hasattr(mod, 'run_decoy_server'):
+            
+            if decoy_type == 'ssh':
+                mod.run_decoy_server(log_queue, port=22)
+            elif decoy_type == 'ldap':
+                mod.run_decoy_server(log_queue, port=389)
+            else:
+                mod.run_decoy_server(log_queue)
+
+    
+    if getattr(args, 'all_decoys', False):
+        setattr(args, 'decoy_http', True)
+        setattr(args, 'decoy_ssh', True)
+        setattr(args, 'decoy_ldap', True)
+
+    if getattr(args, 'decoy_http', False):
+        print(f"{Fore.MAGENTA}[Info - Decoy]{Style.RESET_ALL} Starting HTTP decoy server...")
+        t = threading.Thread(target=run_decoy, args=('http', decoy_logs), daemon=True)
+        t.start()
+        decoy_threads.append(t)
+    if getattr(args, 'decoy_ssh', False):
+        print(f"{Fore.MAGENTA}[Info - Decoy]{Style.RESET_ALL} Starting SSH decoy server...")
+        t = threading.Thread(target=run_decoy, args=('ssh', decoy_logs), daemon=True)
+        t.start()
+        decoy_threads.append(t)
+    if getattr(args, 'decoy_ldap', False):
+        print(f"{Fore.MAGENTA}[Info - Decoy]{Style.RESET_ALL} Starting LDAP decoy server...")
+        t = threading.Thread(target=run_decoy, args=('ldap', decoy_logs), daemon=True)
+        t.start()
+        decoy_threads.append(t)
+
+
+
+    
+    import importlib.util
+    import glob
+    arsenal_dir = os.path.join(os.path.dirname(__file__), "arsenal")
+    plugin_group_map = {
+        'kerberos': 'kerberos',
+        'ldap': 'ldap',
+        'llmnr-nbns': 'llmnr-nbns',
+        'mdns': 'mdns',
+        'netbios': 'netbios',
+        'redis': 'redis',
+        'snmp': 'snmp',
+        'ssdp-upnp': 'ssdp-upnp',
+        'db-enum': 'db-enum',
+        'docker-k8s': 'docker-k8s',
+        'ics-scada': 'ics-scada',
+    }
+    
+    cve_check_group_map = {
+        'web': 'web',
+        'network': 'network'
+    }
+    cve_check_dir = os.path.join(os.path.dirname(__file__), "cve-check")
+    selected_cve_groups = list(cve_check_group_map.keys()) 
+
+    cve_check_files = []
+    for group in selected_cve_groups:
+        group_dir = os.path.join(cve_check_dir, cve_check_group_map[group])
+        group_scripts = glob.glob(os.path.join(group_dir, "*.py"))
+        for script_path in group_scripts:
+            script_name = os.path.splitext(os.path.basename(script_path))[0]
+            if script_name.startswith("_"):
+                continue
+            cve_check_files.append(script_path)
+
+    def run_cve_checks_for_host(host, results):
+        for script_path in cve_check_files:
+            script_name = os.path.splitext(os.path.basename(script_path))[0]
+            spec = importlib.util.spec_from_file_location(script_name, script_path)
+            mod = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(mod)
+                if hasattr(mod, "run"):
+                    mod.run(host, results)
+            except Exception as e:
+                results[host].setdefault("CVE-CHECK", []).append(f"Error running {script_name}: {e}")
+
+    selected_groups = []
+    if args.all_plugins:
+        selected_groups = list(plugin_group_map.keys())
+    else:
+        for group in plugin_group_map:
+            if getattr(args, group.replace('-', '_')):
+                selected_groups.append(group)
+
+    plugin_files = []
+    plugin_ports = set()
+    for group in selected_groups:
+        group_dir = os.path.join(arsenal_dir, plugin_group_map[group])
+        group_plugins = glob.glob(os.path.join(group_dir, "*.py"))
+        for plugin_path in group_plugins:
+            plugin_name = os.path.splitext(os.path.basename(plugin_path))[0]
+            if plugin_name.startswith("_"):
+                continue
+            plugin_files.append(plugin_path)
+            spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                try:
+                    spec.loader.exec_module(mod)
+                    if hasattr(mod, "PORTS") and isinstance(mod.PORTS, (list, tuple, set)):
+                        plugin_ports.update(int(p) for p in mod.PORTS)
+                except Exception:
+                    pass
 
     ports_to_check = []
     if scan_smb:
@@ -556,13 +893,27 @@ def main():
         ports_to_check.extend([80, 443])
     if anti_virus_enabled:
         ports_to_check.extend([int(p) for p in common_ports.keys() if int(p) not in ports_to_check])
+    
+    if vpn_ports:
+        for p in vpn_ports.keys():
+            try:
+                port_int = int(p)
+                if port_int not in ports_to_check:
+                    ports_to_check.append(port_int)
+            except Exception:
+                continue
+
+    
+    for p in plugin_ports:
+        if p not in ports_to_check:
+            ports_to_check.append(p)
 
     open_hosts = {port: [] for port in ports_to_check}
 
-    print(f"{Fore.MAGENTA}[~] Scanning for open ports...{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}[~] Initiating the scan...{Style.RESET_ALL}")
     open_ports_messages = []
 
-    with ThreadPoolExecutor(max_workers=200) as executor:
+    with ThreadPoolExecutor(max_workers=100) as executor:
         future_to_ip_port = {
             executor.submit(is_port_open, ip, port): (ip, port)
             for ip in ip_list for port in ports_to_check
@@ -581,9 +932,20 @@ def main():
         for host in hosts:
             host_ports.setdefault(host, []).append(port)
 
-    for host in sorted(host_ports.keys()):
-        ports_str = ",".join(str(p) for p in sorted(host_ports[host]))
-        print(f"{Fore.BLUE}[+] Host {host} has port(s) {ports_str} open{Style.RESET_ALL}")
+    
+    if getattr(args, 'vpn_check', False) and vpn_ports:
+        for host, ports in host_ports.items():
+            detected = []
+            for port in set(ports):
+                port_str = str(port)
+                if port_str in vpn_ports:
+                    detected.append(f"{port} ({vpn_ports[port_str]})")
+            if detected:
+                vpn_line = f"{Fore.CYAN}[VPN Endpoint Detected] {host} => {', '.join(detected)}{Style.RESET_ALL}"
+                if host not in results:
+                    results[host] = {}
+                results[host].setdefault("VPN-ENDPOINT", []).append(vpn_line)
+
 
     if anti_virus_enabled:
         for host, ports in host_ports.items():
@@ -611,8 +973,8 @@ def main():
     smb_hosts = open_hosts.get(445, []) if scan_smb else []
     ftp_hosts = open_hosts.get(21, []) if scan_ftp else []
 
-    max_workers_smb = min(20, len(smb_hosts)) or 1
-    max_workers_ftp = min(20, len(ftp_hosts)) or 1
+    max_workers_smb = min(25, len(smb_hosts)) or 1
+    max_workers_ftp = min(25, len(ftp_hosts)) or 1
     max_workers = max(max_workers_smb, max_workers_ftp, 1)
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -629,6 +991,7 @@ def main():
             pass
 
     if scan_http:
+        print(f"{Fore.MAGENTA}[~] Enumerating web applications...{Style.RESET_ALL}")
         hosts_http = open_hosts.get(80, [])
         hosts_https = open_hosts.get(443, [])
         run_async_http_scans(hosts_http, hosts_https, stealth_enabled)
@@ -638,10 +1001,15 @@ def main():
 
     def get_mac_address(ip):
         try:
-            subprocess.run(["ping", "-c", "1", "-W", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["ping", "-c", "1", ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
             pid = subprocess.Popen(["arp", "-n", ip], stdout=subprocess.PIPE)
             s = pid.communicate()[0].decode()
+
+            match = re.search(r"at ([0-9a-fA-F:]{17}) ", s)
+            if match:
+                return match.group(1)
+            
             match = re.search(r"(([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2})", s)
             if match:
                 return match.group(0)
@@ -658,13 +1026,68 @@ def main():
             f"{Fore.MAGENTA}[Vendor Detection]{Style.RESET_ALL} {verdict}"
         )
 
+    
+    if args.cve_check:
+        print(f"{Fore.MAGENTA}[~] Running CVE checks on discovered hosts...{Style.RESET_ALL}")
+        hosts_list = sorted(results.keys())
+        def cve_worker(host):
+            run_cve_checks_for_host(host, results)
+        with ThreadPoolExecutor(max_workers=100) as executor:
+            futures = [executor.submit(cve_worker, host) for host in hosts_list]
+            for _ in tqdm(as_completed(futures), total=len(futures), desc="Checking for vulnerabilities"):
+                pass
+
+
+
+    
+    loaded_plugins = []  
+    for plugin_path in plugin_files:
+        plugin_name = os.path.splitext(os.path.basename(plugin_path))[0]
+        if plugin_name.startswith("_"):
+            continue  
+        spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            try:
+                spec.loader.exec_module(mod)
+                if hasattr(mod, "run"):
+                    ports = set()
+                    if hasattr(mod, "PORTS") and isinstance(mod.PORTS, (list, tuple, set)):
+                        ports = set(int(p) for p in mod.PORTS)
+                    loaded_plugins.append((mod, ports))
+            except Exception as e:
+                print(f"{Fore.YELLOW}[!] Failed to load plugin {plugin_name}: {e}{Style.RESET_ALL}")
+
+    if loaded_plugins:
+        print(f"{Fore.MAGENTA}[~] Running plugins on discovered hosts...{Style.RESET_ALL}")
+        plugin_tasks = []
+        with ThreadPoolExecutor(max_workers=75) as executor:
+            for plugin, plugin_ports in loaded_plugins:
+                relevant_hosts = set()
+                for host, ports in host_ports.items():
+                    if plugin_ports and any(p in ports for p in plugin_ports):
+                        relevant_hosts.add(host)
+                
+                if not plugin_ports:
+                    relevant_hosts = set(results.keys())
+                for host in sorted(relevant_hosts):
+                    plugin_tasks.append(executor.submit(plugin.run, host, results))
+            
+            with tqdm(total=len(plugin_tasks), desc="Running Plugins") as pbar:
+                for future in as_completed(plugin_tasks):
+                    try:
+                        future.result()
+                    except Exception as e:
+                        print(f"{Fore.YELLOW}[!] Plugin execution failed: {e}{Style.RESET_ALL}")
+                    pbar.update(1)
+
 
     for host in sorted(results.keys()):
-        print("\n\n") 
+        print("\n\n")
         print(f"{Fore.CYAN}==========Host: {host}=========={Style.RESET_ALL}")
         host_protocols = results[host]
 
-        for protocol in ["SMB", "FTP", "HTTP", "HTTPS", "AV-PORT-DETECTION", "VENDOR-DETECTION"]:
+        for protocol in ["SMB", "FTP", "HTTP", "HTTPS", "AV-PORT-DETECTION", "VENDOR-DETECTION", "VPN-ENDPOINT", "CVE-CHECK"]:
             if protocol == "SMB":
                 print(f"{Fore.YELLOW}Service: SMB{Style.RESET_ALL}")
             elif protocol == "FTP":
@@ -676,7 +1099,10 @@ def main():
                 print(f"{Fore.YELLOW}AV/EDR/FW Port Detection:{Style.RESET_ALL}")
             elif protocol == "VENDOR-DETECTION":
                 print(f"{Fore.YELLOW}Vendor Detection:{Style.RESET_ALL}")
-
+            elif protocol == "VPN-ENDPOINT":
+                print(f"{Fore.YELLOW}VPN Endpoint Detection:{Style.RESET_ALL}")
+            elif protocol == "CVE-CHECK":
+                print(f"{Fore.YELLOW}CVE Checks:{Style.RESET_ALL}")
 
             if protocol in host_protocols:
                 for line in host_protocols[protocol]:
@@ -689,15 +1115,96 @@ def main():
 
             print(f"{Fore.YELLOW}{'─'*35}{Style.RESET_ALL}")
 
+
+        plugin_keys = [k for k in host_protocols if k.startswith("PLUGIN")] 
+        if plugin_keys:
+            print(f"{Fore.YELLOW}Plugin Output:{Style.RESET_ALL}")
+            for key in sorted(plugin_keys):
+                print(f"    {Fore.YELLOW}[{key}]{Style.RESET_ALL}")
+                for line in host_protocols[key]:
+                    print(f"        {line}")
+            print(f"{Fore.YELLOW}{'─'*35}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}Plugin Output:{Style.RESET_ALL}")
+            print(f"    {Fore.LIGHTBLACK_EX}• No plugin results{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{'─'*35}{Style.RESET_ALL}")
+
         print("\n")
 
+    
+    if getattr(args, 'decoy_http', False) or getattr(args, 'decoy_ssh', False) or getattr(args, 'decoy_ldap', False):
+        time.sleep(2)
+        print(f"{Fore.MAGENTA}\n========== Decoy Interactions =========={Style.RESET_ALL}")
+        seen = set()
+        found = False
+        decoy_entries = []
+        while not decoy_logs.empty():
+            entry = decoy_logs.get()
+            decoy_entries.append(entry)
+            ip = entry.get('ip')
+            action = entry.get('action')
+            if ip and action:
+                key = (ip, action)
+                if key not in seen:
+                    if 'SSH' in action:
+                        decoy_type = 'SSH'
+                    elif 'LDAP' in action:
+                        decoy_type = 'LDAP'
+                    else:
+                        decoy_type = 'HTTP'
+                    print(f"{Fore.MAGENTA}[{decoy_type} - Decoy]{Style.RESET_ALL} {ip} tried: {action}")
+                    seen.add(key)
+                    found = True
+
+        for entry in decoy_entries:
+            decoy_logs.put(entry)
+        if not found:
+            print(f"    {Fore.LIGHTBLACK_EX}• No results or not scanned{Style.RESET_ALL}")
+        print(f"{Fore.MAGENTA}{'='*40}{Style.RESET_ALL}")
+        print("\n\n")
+        
+
+
+
+    def get_decoy_interactions_text():
+        lines = []
+        lines.append("")
+        lines.append(f"========== Decoy Interactions ==========")
+        seen = set()
+        time.sleep(2)
+        decoy_items = []
+        try:
+            import queue as _queue
+            while True:
+                entry = decoy_logs.get_nowait()
+                decoy_items.append(entry)
+        except Exception:
+            pass
+        
+        for entry in decoy_items:
+            decoy_logs.put(entry)
+        
+        for entry in decoy_items:
+            ip = entry.get('ip')
+            action = entry.get('action')
+            if ip and action:
+                key = (ip, action)
+                if key not in seen:
+                    lines.append(f"[HTTP - Decoy] {ip} tried: {action}")
+                    seen.add(key)
+        if len(lines) == 2:  
+            lines.append("• No results or not scanned")
+        lines.append("="*40)
+        lines.append("")
+        lines.append("")
+        return "\n".join(lines)
 
     def format_host_output(host, host_protocols):
         lines = []
         lines.append("")  
         lines.append("")  
         lines.append(f"==========Host: {host}==========")
-        for protocol in ["SMB", "FTP", "HTTP", "HTTPS", "AV-PORT-DETECTION", "VENDOR-DETECTION"]:
+        for protocol in ["SMB", "FTP", "HTTP", "HTTPS", "AV-PORT-DETECTION", "VENDOR-DETECTION", "VPN-ENDPOINT", "CVE-CHECK"]:
             if protocol == "SMB":
                 lines.append("Service: SMB")
             elif protocol == "FTP":
@@ -710,6 +1217,11 @@ def main():
             elif protocol == "VENDOR-DETECTION":
                 lines.append("Vendor Detection:")
 
+            elif protocol == "VPN-ENDPOINT":
+                lines.append("VPN Endpoint Detection:")
+            elif protocol == "CVE-CHECK":
+                lines.append("CVE Checks:")
+
             if protocol in host_protocols:
                 for line in host_protocols[protocol]:
                     if "No results or not scanned" in line or "No AV/EDR/FW Fingerprint Detected" in line:
@@ -719,17 +1231,35 @@ def main():
             else:
                 lines.append("    • No results or not scanned")
             lines.append("─"*35)
+
+        
+        plugin_keys = [k for k in host_protocols if k.startswith("PLUGIN")]
+        if plugin_keys:
+            lines.append("Plugin Output:")
+            for key in sorted(plugin_keys):
+                lines.append(f"    [{key}]")
+                for line in host_protocols[key]:
+                    lines.append(f"        {strip_ansi(line)}")
+            lines.append("─"*35)
+        else:
+            lines.append("Plugin Output:")
+            lines.append("    • No plugin results")
+            lines.append("─"*35)
+
         lines.append("")  
         return "\n".join(lines)
 
     if args.output:
         with open(args.output, 'w') as f:
-            f.write("Bōryoku V2 - An Advanced Modular Red Team Tool\n")
+            f.write("Bōryoku Framework - V3.0.0\n")
             f.write("Author: Dion Mulaj\n")
             f.write("GitHub: https://github.com/dionmulaj\n\n")
             for host in sorted(results.keys()):
                 host_protocols = results[host]
                 f.write(format_host_output(host, host_protocols))
+            
+            if getattr(args, 'decoy_http', False) or getattr(args, 'decoy_ssh', False) or getattr(args, 'decoy_ldap', False):
+                f.write(get_decoy_interactions_text())
         print(f"{Fore.YELLOW}[~] Results saved to {args.output}{Style.RESET_ALL}")
 
 
@@ -745,8 +1275,12 @@ def main():
             for host in sorted(results.keys()):
                 host_protocols = results[host]
                 combined_output.append(format_host_output(host, host_protocols))
+            
+            if getattr(args, 'decoy_http', False) or getattr(args, 'decoy_ssh', False) or getattr(args, 'decoy_ldap', False):
+                combined_output.append(get_decoy_interactions_text())
             final_message = "\n".join(combined_output)
             send_to_discord_webhook(final_message, webhook_url)
+
 
     if args.slack:
         slack_config_path = os.path.join("webhooks", "slack.json")
@@ -760,8 +1294,169 @@ def main():
                     for host in sorted(results.keys()):
                         host_protocols = results[host]
                         combined_output.append(format_host_output(host, host_protocols))
+                    
+                    if getattr(args, 'decoy_http', False) or getattr(args, 'decoy_ssh', False) or getattr(args, 'decoy_ldap', False):
+                        combined_output.append(get_decoy_interactions_text())
                     final_message = "\n".join(combined_output)
                     send_message_to_slack(final_message[:40000], slack_token, slack_channel)
+
+    
+    if args.visualize:
+        if Network is None:
+            print(f"{Fore.RED}[!] pyvis is not installed. Run 'pip install pyvis' to use visualization.{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}[~] Generating network map visualization...{Style.RESET_ALL}")
+            build_and_show_network_graph(results)
+
+
+def build_and_show_network_graph(results):
+    from datetime import datetime
+    import json as _json
+    net = Network(height="750px", width="100%", directed=False, layout=None)
+    host_info_map = {}
+    
+    node_styles = {
+        "host": {"color": "#4F8EF7", "shape": "ellipse", "icon": "🖥️"},
+        "SMB": {"color": "#FFD700", "icon": "📁"},
+        "FTP": {"color": "#FF8C00", "icon": "📦"},
+        "HTTP": {"color": "#32CD32", "icon": "🌐"},
+        "HTTPS": {"color": "#228B22", "icon": "🔒"},
+        "AV-PORT-DETECTION": {"color": "#DC143C", "icon": "🛡️"},
+        "VENDOR-DETECTION": {"color": "#8A2BE2", "icon": "🏷️"},
+        "VPN-ENDPOINT": {"color": "#00CED1", "icon": "🔑"},
+        "CVE-CHECK": {"color": "#B22222", "icon": "⚠️"},
+        "PLUGIN": {"color": "#FF69B4", "icon": "🔌"},
+    }
+    
+    total_hosts = len(results)
+    total_services = set()
+    total_vpn = 0
+    total_av = 0
+    total_honeypot = 0
+    import re
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*[mK]')
+    for host, protocols in results.items():
+        info_lines = []
+        for proto, details in protocols.items():
+            total_services.add(proto)
+
+            for line in details:
+                if "HONEYPOT DETECTED" in line:
+                    total_honeypot += 1
+                if proto == "VPN-ENDPOINT":
+                    total_vpn += 1
+                if proto == "AV-PORT-DETECTION":
+                    total_av += 1
+        
+        info_lines.append("<table style='width:100%;border-collapse:collapse;'>")
+        for proto, details in protocols.items():
+            style = node_styles.get(proto, node_styles.get("PLUGIN", {"color": "#FF69B4", "icon": "🔌"}))
+            info_lines.append(f"<tr><td style='background:{style['color']};font-weight:bold;padding:4px;border:1px solid #ccc;'>{style['icon']} {proto}</td></tr>")
+            for line in details:
+                clean_line = ansi_escape.sub('', line)
+                info_lines.append(f"<tr><td style='padding:4px;border:1px solid #eee;'>{clean_line}</td></tr>")
+        info_lines.append("</table>")
+        info_html = "".join(info_lines)
+        host_info_map[host] = info_html
+        
+        net.add_node(host, label=f"{node_styles['host']['icon']} {host}", color=node_styles['host']['color'], title="Click for details", group="host", shape=node_styles['host']['shape'], level=1)
+        
+        for proto in protocols:
+            style = node_styles.get(proto, node_styles.get("PLUGIN", {"color": "#FF69B4", "icon": "🔌"}))
+            net.add_node(proto, label=f"{style['icon']} {proto}", color=style['color'], group=proto, level=2)
+            
+            edge_style = {"color": style['color'], "width": 2}
+            if proto == "VPN-ENDPOINT":
+                edge_style["dashes"] = True
+            elif proto == "AV-PORT-DETECTION":
+                edge_style["width"] = 3
+            net.add_edge(host, proto, **edge_style)
+    
+    legend_html = "<b>Legend:</b><br>" + "<br>".join([
+        f"<span style='color:{v['color']};font-weight:bold;'>{v['icon']} {k}</span>" for k, v in node_styles.items() if k != "host"
+    ])
+    net.add_node("Legend", label="Legend", color="#333", shape="box", title=legend_html, group="legend", level=0)
+    
+    existing_nodes = set(net.get_nodes())
+    for proto in total_services:
+        if proto in existing_nodes:
+            net.add_edge("Legend", proto, color="#333", width=1, dashes=True)
+    
+    summary_html = f"<b>Scan Summary</b><br>Total Hosts: {total_hosts}<br>Total Services: {len(total_services)}<br>VPN Endpoints: {total_vpn}<br>AV/EDR/FW Detected: {total_av}<br>Honeypots: {total_honeypot}" 
+    net.add_node("Summary", label="Summary", color="#222", shape="ellipse", title=summary_html, group="summary", level=0)
+    net.add_edge("Summary", "Legend", color="#222", width=1)
+    
+    now = datetime.now()
+    filename = now.strftime("%d.%m.%Y-%H.%M.html")
+    mapping_dir = os.path.join(os.path.dirname(__file__), "mapping")
+    if not os.path.exists(mapping_dir):
+        os.makedirs(mapping_dir)
+    output_html = os.path.join(mapping_dir, filename)
+    
+    net.set_options('{"layout": {"hierarchical": {"enabled": true, "direction": "UD", "sortMethod": "hubsize", "nodeSpacing": 200, "treeSpacing": 400, "levelSeparation": 250}}, "physics": {"hierarchicalRepulsion": {"nodeDistance": 250}, "stabilization": {"enabled": true, "iterations": 200}}}')
+    net.show(output_html, notebook=False)
+    
+    try:
+        with open(output_html, "r", encoding="utf-8") as f:
+            html = f.read()
+
+        modal_code = '''
+<style>
+  #hostInfoModal { display:none; position:fixed; z-index:9999; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); }
+  #hostInfoModal .modal-content { background:#fff; margin:10vh auto; padding:20px; border-radius:8px; width:80vw; max-width:600px; max-height:70vh; overflow-y:auto; }
+  #hostInfoModal .close { float:right; font-size:28px; font-weight:bold; cursor:pointer; }
+  #searchBar { margin:10px 0; padding:8px; width:40vw; font-size:16px; border-radius:4px; border:1px solid #ccc; }
+</style>
+<div id="hostInfoModal">
+  <div class="modal-content">
+    <span class="close" onclick="document.getElementById('hostInfoModal').style.display='none'">&times;</span>
+    <div id="hostInfoDetails"></div>
+  </div>
+</div>
+<input id="searchBar" type="text" placeholder="Search host or service..." oninput="filterNodes()" />
+'''
+        
+        host_info_js = f"var hostInfoMap = {_json.dumps(host_info_map)};"
+        js_code = f'''
+<script type="text/javascript">
+{host_info_js}
+var network;
+function setupHostClick() {{
+  if (!window.network) return;
+  network.on("click", function(params) {{
+    if (params.nodes.length > 0) {{
+      var nodeId = params.nodes[0];
+      if (hostInfoMap[nodeId]) {{
+        document.getElementById('hostInfoDetails').innerHTML = hostInfoMap[nodeId];
+        document.getElementById('hostInfoModal').style.display = 'block';
+      }}
+    }}
+  }});
+}}
+function filterNodes() {{
+  var val = document.getElementById('searchBar').value.toLowerCase();
+  var allNodes = network.body.data.nodes.get();
+  var update = allNodes.map(function(n) {{
+    if (n.label.toLowerCase().includes(val)) {{
+      return {{id: n.id, hidden: false}};
+    }} else {{
+      return {{id: n.id, hidden: true}};
+    }}
+  }});
+  network.body.data.nodes.update(update);
+}}
+window.addEventListener('load', function() {{
+  network = window.network;
+  setupHostClick();
+}});
+</script>
+'''
+        
+        html = html.replace("</body>", modal_code + js_code + "</body>")
+        with open(output_html, "w", encoding="utf-8") as f:
+            f.write(html)
+    except Exception as e:
+        print(f"[!] Failed to inject click modal: {e}")
 
 if __name__ == "__main__":
     main()
