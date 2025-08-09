@@ -170,6 +170,7 @@ Boryoku/
 1. Run the tool as **sudo** for proper ARP - MAC Address Identification feature usage.
 2. If you encounter errors, check Impacket installation and Python dependencies.
 3. For plugin errors, ensure all arsenal and cve-check scripts are present and compatible.
+4. It is highly recommended to be in the same directory as the tool when executing it.
 
 
 ## 📚 Credits
