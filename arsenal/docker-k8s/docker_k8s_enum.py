@@ -1,5 +1,5 @@
 """
-Detects exposed Docker/Kubernetes APIs and enumerates containers/pods if possible.
+Detects exposed Docker/Kubernetes APIs and enumerates containers if possible.
 """
 
 PORTS = [2375, 2376, 6443, 10250, 10255]  
