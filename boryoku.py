@@ -661,7 +661,7 @@ def main():
         ports_to_check = [int(p) for p in vpn_ports.keys()]
         open_hosts = {port: [] for port in ports_to_check}
         print(f"{Fore.MAGENTA}[~] Initiating VPN endpoint scan...{Style.RESET_ALL}")
-        with ThreadPoolExecutor(max_workers=200) as executor:
+        with ThreadPoolExecutor(max_workers=100) as executor:
             future_to_ip_port = {
                 executor.submit(is_port_open, ip, port): (ip, port)
                 for ip in ip_list for port in ports_to_check
@@ -913,7 +913,7 @@ def main():
     print(f"{Fore.MAGENTA}[~] Initiating the scan...{Style.RESET_ALL}")
     open_ports_messages = []
 
-    with ThreadPoolExecutor(max_workers=200) as executor:
+    with ThreadPoolExecutor(max_workers=100) as executor:
         future_to_ip_port = {
             executor.submit(is_port_open, ip, port): (ip, port)
             for ip in ip_list for port in ports_to_check
@@ -1061,7 +1061,7 @@ def main():
     if loaded_plugins:
         print(f"{Fore.MAGENTA}[~] Running plugins on discovered hosts...{Style.RESET_ALL}")
         plugin_tasks = []
-        with ThreadPoolExecutor(max_workers=200) as executor:
+        with ThreadPoolExecutor(max_workers=75) as executor:
             for plugin, plugin_ports in loaded_plugins:
                 relevant_hosts = set()
                 for host, ports in host_ports.items():
