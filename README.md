@@ -171,6 +171,7 @@ Boryoku/
 2. If you encounter errors, check Impacket installation and Python dependencies.
 3. For plugin errors, ensure all arsenal and cve-check scripts are present and compatible.
 4. It is highly recommended to be in the same directory as the tool when executing it.
+5. If the tool is running slow, you can raise the "max_workers" values within the script.
 
 
 ## 📚 Credits
