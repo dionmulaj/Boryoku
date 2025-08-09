@@ -3,7 +3,7 @@ def run(host, results, **kwargs):
     """
     Kerberos PAC Validation Check
     - Checks if Kerberos (88) is open, which is required for PAC validation attacks
-    - Reports if Kerberos (88) is open on the host
+    - Checks if Kerberos port 88 is open on the host
     """
     import socket
     info_lines = []
