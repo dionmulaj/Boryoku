@@ -3,3 +3,5 @@ colorama
 tqdm
 requests
 httpx
+netifaces
+pyvis
