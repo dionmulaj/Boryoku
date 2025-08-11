@@ -1,4 +1,6 @@
 """
+Bōryoku Framework
+Author: Dion Mulaj
 Detects DNP3 TCP on hosts and attempts basic handshake.
 """
 import socket
