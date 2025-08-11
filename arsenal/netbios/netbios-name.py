@@ -1,6 +1,10 @@
 PORTS = [137]
 def run(host, results, **kwargs):
-    """NetBIOS Name Service plugin: queries UDP/137 for NetBIOS names."""
+    """
+       Bōryoku Framework
+       Author: Dion Mulaj
+       NetBIOS Name Service plugin: queries UDP/137 for NetBIOS names.
+    """
     import socket
     import struct
     netbios_port = 137
