@@ -1,5 +1,10 @@
 PORTS = [161]
 def run(host, results, **kwargs):
+    """
+    Bōryoku Framework
+    Author: Dion Mulaj
+    SNMP Detection and Banner Grabbing Plugin.
+    """
 
     import socket
     snmp_port = 161
