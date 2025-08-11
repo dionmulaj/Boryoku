@@ -1,6 +1,8 @@
 PORTS = [389]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     Kerberos SIDHistory Abuse Check
     - Checks if LDAP is open, which is required for SIDHistory abuse
     - Reports if LDAP (389) is open on the host
