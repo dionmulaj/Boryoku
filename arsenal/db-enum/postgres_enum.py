@@ -1,5 +1,6 @@
 """
 Bōryoku Framework
+Author: Dion Mulaj
 Enumerates PostgreSQL servers for version info via banner grab.
 """
 PORTS = [5432]
