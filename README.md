@@ -2,7 +2,7 @@
   <img src="boryoku-framework.png" alt="Boryoku Logo" width="400"/>
 </p>
 
-# Bōryoku Framework - v3.0.1
+# Bōryoku Framework - v3.0.2
 
 ![Python](https://img.shields.io/badge/Python-3%2B-blue.svg)
 ![Status](https://img.shields.io/badge/status-actively--maintained-brightgreen)
