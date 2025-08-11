@@ -1,4 +1,6 @@
 """
+Bōryoku Framework
+Author: Dion Mulaj
 Detects Siemens S7comm on hosts and attempts basic handshake.
 """
 import socket
