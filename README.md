@@ -5,7 +5,6 @@
 # Bōryoku Framework - v3.0.1
 
 ![Python](https://img.shields.io/badge/Python-3%2B-blue.svg)
-![License](https://img.shields.io/github/license/dionmulaj/boryoku)
 ![Status](https://img.shields.io/badge/status-actively--maintained-brightgreen)
 <br>
 <br>
