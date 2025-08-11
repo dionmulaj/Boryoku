@@ -7,7 +7,7 @@
 ![Python](https://img.shields.io/badge/Python-3%2B-blue.svg)
 ![License](https://img.shields.io/github/license/dionmulaj/boryoku)
 ![Status](https://img.shields.io/badge/status-actively--maintained-brightgreen)
-[![License: CNCAL](https://img.shields.io/badge/License-CNCAL-gold?style=for-the-badge&logoColor=white&labelColor=0a2540)](LICENSE.md)
+[![License: CNCAL](https://img.shields.io/badge/License-CNCAL-gold?style=for-the-badge&logoColor=white&labelColor=0a2540)](LICENSE)
 
 ## 🔍 Overview
 
