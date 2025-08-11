@@ -1,4 +1,5 @@
 """
+Bōryoku Framework
 Enumerates Oracle DB servers for version info via banner grab.
 """
 PORTS = [1521]
