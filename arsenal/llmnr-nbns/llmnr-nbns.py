@@ -1,6 +1,8 @@
 PORTS = [137, 5355]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     LLMNR/NBNS Poisoning Detector Plugin
     - Sends LLMNR and NBNS queries to the host.
     - If the host responds, it may be vulnerable to spoofing/poisoning attacks.
