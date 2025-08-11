@@ -1,6 +1,8 @@
 PORTS = [6379]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     Redis Unauthenticated Access Plugin
     - Attempts to connect to Redis on port 6379 without authentication
     - Sends INFO command to retrieve server details if possible
