@@ -1,6 +1,8 @@
 PORTS = [88]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     Kerberos AS-REP Roasting Plugin
     - Attempts to request AS-REP for usernames
     - If a user does not require pre-auth, the AS-REP is returned and can be cracked offline
