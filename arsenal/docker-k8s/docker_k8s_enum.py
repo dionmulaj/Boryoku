@@ -1,4 +1,5 @@
 """
+Bōryoku Framework
 Detects exposed Docker/Kubernetes APIs and enumerates containers if possible.
 """
 
