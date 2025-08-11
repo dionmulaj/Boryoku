@@ -8,6 +8,7 @@
 ![License](https://img.shields.io/github/license/dionmulaj/boryoku)
 ![Status](https://img.shields.io/badge/status-actively--maintained-brightgreen)
 <br>
+<br>
 [![License: CNCAL](https://img.shields.io/badge/License-CNCAL-gold?style=for-the-badge&logoColor=white&labelColor=0a2540)](LICENSE)
 
 ## 🔍 Overview
