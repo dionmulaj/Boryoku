@@ -7,6 +7,7 @@
 ![Python](https://img.shields.io/badge/Python-3%2B-blue.svg)
 ![License](https://img.shields.io/github/license/dionmulaj/boryoku)
 ![Status](https://img.shields.io/badge/status-actively--maintained-brightgreen)
+[![License: CNCAL](https://img.shields.io/badge/License-CNCAL-gold?style=for-the-badge&logoColor=white&labelColor=0a2540)](LICENSE.md)
 
 ## 🔍 Overview
 
@@ -173,11 +174,23 @@ Boryoku/
 4. It is highly recommended to be in the same directory as the tool when executing it.
 5. If the tool is running slow, you can raise the "max_workers" values within the script.
 
+---
 
 ## 📚 Credits
 
 Created by **Dion Mulaj**  
 GitHub: [@dionmulaj](https://github.com/dionmulaj)
+
+---
+
+## 📜 License
+This project is licensed under the Custom Non-Commercial Attribution License (CNCAL).
+You are free to:
+
+✅ Use and modify the software.
+❌ Not use it for commercial purposes.
+❌ Not misrepresent authorship (credit required).
+See the [LICENSE](LICENSE.md) file for full details.
 
 ---
 
