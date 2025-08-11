@@ -1,5 +1,6 @@
 """
 Bōryoku Framework
+Author: Dion Mulaj
 Enumerates MSSQL servers for version info via banner grab.
 """
 PORTS = [1433]
