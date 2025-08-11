@@ -1,6 +1,8 @@
 PORTS = [1900]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     SSDP/UPnP Device Enumeration Plugin
     - Sends an SSDP M-SEARCH request to UDP port 1900 to discover UPnP devices/services
     - Reports any SSDP/UPnP responses from the target host
