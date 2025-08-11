@@ -185,10 +185,13 @@ GitHub: [@dionmulaj](https://github.com/dionmulaj)
 ---
 
 ## 📜 License
-This project is licensed under the Custom Non-Commercial Attribution License (CNCAL). <br>
-**Allowed:** <br>
+This project is licensed under the Custom Non-Commercial Attribution License (CNCAL). 
+<br>
+<br>
+**Allowed:** 
 
 ✅ Use and modify the software.
+<br>
 <br>
 **Not Allowed:** <br>
 
