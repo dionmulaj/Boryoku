@@ -1,6 +1,8 @@
 PORTS = [88, 389, 445]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     Kerberos Golden Ticket Attackability Check
     - Checks if the host is a Domain Controller (DC) and thus a target for golden ticket attacks
     - Reports if the host is likely a DC
