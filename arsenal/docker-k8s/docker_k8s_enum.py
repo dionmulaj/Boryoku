@@ -1,5 +1,6 @@
 """
 Bōryoku Framework
+Author: Dion Mulaj
 Detects exposed Docker/Kubernetes APIs and enumerates containers if possible.
 """
 
