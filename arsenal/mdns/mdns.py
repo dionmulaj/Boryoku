@@ -1,6 +1,8 @@
 PORTS = [5353]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     mDNS/Bonjour Service Discovery Plugin
     - Sends a multicast DNS query to port 5353 to discover advertised services on the LAN
     - Reports any mDNS responses from the target host
