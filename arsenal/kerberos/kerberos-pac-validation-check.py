@@ -1,6 +1,8 @@
 PORTS = [88]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     Kerberos PAC Validation Check
     - Checks if Kerberos (88) is open, which is required for PAC validation attacks
     - Checks if Kerberos port 88 is open on the host
