@@ -28,7 +28,7 @@ except ImportError:
 init(autoreset=True)
 
 AUTHOR_INFO = f"""
-{Fore.CYAN}Bōryoku Framework - V3.0.0
+{Fore.CYAN}Bōryoku Framework - V3.0.1
 Author: Dion Mulaj
 GitHub: https://github.com/dionmulaj{Style.RESET_ALL}
 """
@@ -719,7 +719,7 @@ def main():
             return "\n".join(lines)
         if args.output:
             with open(args.output, 'w') as f:
-                f.write("Bōryoku Framework - V3.0.0\n")
+                f.write("Bōryoku Framework - V3.0.1\n")
                 f.write("Author: Dion Mulaj\n")
                 f.write("GitHub: https://github.com/dionmulaj\n\n")
                 for host in sorted(results.keys()):
@@ -1251,7 +1251,7 @@ def main():
 
     if args.output:
         with open(args.output, 'w') as f:
-            f.write("Bōryoku Framework - V3.0.0\n")
+            f.write("Bōryoku Framework - V3.0.1\n")
             f.write("Author: Dion Mulaj\n")
             f.write("GitHub: https://github.com/dionmulaj\n\n")
             for host in sorted(results.keys()):
