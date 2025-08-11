@@ -1,4 +1,5 @@
 """
+Bōryoku Framework
 Enumerates MySQL servers for version, users, and databases.
 """
 PORTS = [3306]
