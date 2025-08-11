@@ -28,7 +28,7 @@ except ImportError:
 init(autoreset=True)
 
 AUTHOR_INFO = f"""
-{Fore.CYAN}Bōryoku Framework - V3.0.1
+{Fore.CYAN}Bōryoku Framework - V3.0.2
 Author: Dion Mulaj
 GitHub: https://github.com/dionmulaj{Style.RESET_ALL}
 """
@@ -242,68 +242,94 @@ def honeypot_verdict(score):
 
 
 def check_smb_guest_access(host, stealth=False):
-    lines = []
     shares_list = []
     files_list = []
-    banner = ""  
+    banner = ""
 
     if stealth:
         stealth_delay()
 
-    try:
-        smb = SMBConnection(host, host, sess_port=445, timeout=5)
-        smb.login('', '')
+    max_retries = 3
+    success_lines = []
+    fail_lines = []
+    success = False
+    for attempt in range(max_retries):
+        try:
+            smb = SMBConnection(host, host, sess_port=445, timeout=5)
+            smb.login('', '')
 
-        server_name = smb.getServerName()
-        banner = server_name or ""
-        lines.append(f"{Fore.CYAN}[i] SMB Server Name: {server_name}{Style.RESET_ALL}")
+            server_name = smb.getServerName()
+            banner = server_name or ""
+            success_lines.append(f"{Fore.CYAN}[i] SMB Server Name: {server_name}{Style.RESET_ALL}")
+            success_lines.append(f"{Fore.GREEN}[+] SMB anonymous login successful on {host}{Style.RESET_ALL}")
 
-        lines.append(f"{Fore.GREEN}[+] SMB anonymous login successful on {host}{Style.RESET_ALL}")
+            shares = smb.listShares()
+            shares_list = [share['shi1_netname'].rstrip('\x00').upper() for share in shares]
 
-        shares = smb.listShares()
-        shares_list = [share['shi1_netname'].rstrip('\x00').upper() for share in shares]
+            for share in shares:
+                share_name = share['shi1_netname'][:-1]
 
-        for share in shares:
-            share_name = share['shi1_netname'][:-1]
+                if stealth:
+                    stealth_delay()
 
-            if stealth:
-                stealth_delay()
+                try:
+                    entries = smb.listPath(share_name, '*')
+                    files_list.extend([entry.get_longname() for entry in entries if entry.get_longname() not in ('.', '..')])
+                    success_lines.append(f"{Fore.GREEN}    [+] SMB guest access allowed on share: {share_name}{Style.RESET_ALL}")
+                    for entry in entries:
+                        name = entry.get_longname()
+                        if name not in ('.', '..'):
+                            success_lines.append(f"{Fore.WHITE}        - {name}{Style.RESET_ALL}")
+                except Exception:
+                    success_lines.append(f"{Fore.RED}    [-] Access denied on share: {share_name}{Style.RESET_ALL}")
+            smb.close()
+            success = True
+            break
+        except Exception:
+            if attempt < max_retries - 1:
+                time.sleep(1.5)
+                continue
+    if not success:
+        fail_lines.append(f"{Fore.RED}[-] SMB anonymous login failed on {host}{Style.RESET_ALL}")
 
-            try:
-                entries = smb.listPath(share_name, '*')
-                files_list.extend([entry.get_longname() for entry in entries if entry.get_longname() not in ('.', '..')])
-                lines.append(f"{Fore.GREEN}    [+] SMB guest access allowed on share: {share_name}{Style.RESET_ALL}")
-                for entry in entries:
-                    name = entry.get_longname()
-                    if name not in ('.', '..'):
-                        lines.append(f"{Fore.WHITE}        - {name}{Style.RESET_ALL}")
-            except Exception:
-                lines.append(f"{Fore.RED}    [-] Access denied on share: {share_name}{Style.RESET_ALL}")
-        smb.close()
-    except Exception:
-        lines.append(f"{Fore.RED}[-] SMB anonymous login failed on {host}{Style.RESET_ALL}")
-
-    
     score, details = calculate_honeypot_score("smb", banner, results={"shares": shares_list, "files": files_list})
-    lines.append(honeypot_verdict(score))
-    if details:
-        lines.append(f"{Fore.MAGENTA}[Honeypot Details]:{Style.RESET_ALL}")
-        for d in details:
-            lines.append(f"  - {d}")
-   
-    
-    av_score, av_details = calculate_av_fingerprint("smb", banner, results={"shares": shares_list, "files": files_list})
-    if av_details:
-        lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL}{Fore.RED} AV/EDR/FW FINGERPINT DETECTED!!!!!{Style.RESET_ALL}")
-        for d in av_details:
-            lines.append(f"  - {d}")
+    verdict_line = honeypot_verdict(score)
+    if success:
+        success_lines.append(verdict_line)
+        if details:
+            success_lines.append(f"{Fore.MAGENTA}[Honeypot Details]:{Style.RESET_ALL}")
+            for d in details:
+                success_lines.append(f"  - {d}")
     else:
-        lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL} No AV/EDR/FW Fingerprint Detected")
+        fail_lines.append(verdict_line)
+        if details:
+            fail_lines.append(f"{Fore.MAGENTA}[Honeypot Details]:{Style.RESET_ALL}")
+            for d in details:
+                fail_lines.append(f"  - {d}")
+
+    av_score, av_details = calculate_av_fingerprint("smb", banner, results={"shares": shares_list, "files": files_list})
+    if success:
+        if av_details:
+            success_lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL}{Fore.RED} AV/EDR/FW FINGERPINT DETECTED!!!!!{Style.RESET_ALL}")
+            for d in av_details:
+                success_lines.append(f"  - {d}")
+        else:
+            success_lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL} No AV/EDR/FW Fingerprint Detected")
+    else:
+        if av_details:
+            fail_lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL}{Fore.RED} AV/EDR/FW FINGERPINT DETECTED!!!!!{Style.RESET_ALL}")
+            for d in av_details:
+                fail_lines.append(f"  - {d}")
+        else:
+            fail_lines.append(f"{Fore.MAGENTA}[Fingerprint Detection]{Style.RESET_ALL} No AV/EDR/FW Fingerprint Detected")
 
     with output_lock:
         if host not in results:
             results[host] = {}
-        results[host].setdefault("SMB", []).extend(lines)
+        if success:
+            results[host].setdefault("SMB", []).extend(success_lines)
+        else:
+            results[host].setdefault("SMB", []).extend(fail_lines)
 
 
 def check_ftp_guest_access(host, stealth=False):
@@ -719,7 +745,7 @@ def main():
             return "\n".join(lines)
         if args.output:
             with open(args.output, 'w') as f:
-                f.write("Bōryoku Framework - V3.0.1\n")
+                f.write("Bōryoku Framework - V3.0.2\n")
                 f.write("Author: Dion Mulaj\n")
                 f.write("GitHub: https://github.com/dionmulaj\n\n")
                 for host in sorted(results.keys()):
@@ -973,7 +999,7 @@ def main():
     smb_hosts = open_hosts.get(445, []) if scan_smb else []
     ftp_hosts = open_hosts.get(21, []) if scan_ftp else []
 
-    max_workers_smb = min(25, len(smb_hosts)) or 1
+    max_workers_smb = min(8, len(smb_hosts)) or 1
     max_workers_ftp = min(25, len(ftp_hosts)) or 1
     max_workers = max(max_workers_smb, max_workers_ftp, 1)
 
@@ -1251,7 +1277,7 @@ def main():
 
     if args.output:
         with open(args.output, 'w') as f:
-            f.write("Bōryoku Framework - V3.0.1\n")
+            f.write("Bōryoku Framework - V3.0.2\n")
             f.write("Author: Dion Mulaj\n")
             f.write("GitHub: https://github.com/dionmulaj\n\n")
             for host in sorted(results.keys()):
