@@ -1,4 +1,5 @@
 """
+Bōryoku Framework
 Enumerates MSSQL servers for version info via banner grab.
 """
 PORTS = [1433]
