@@ -1,6 +1,8 @@
 PORTS = [88]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     Kerberos Service Detection Plugin
     - Checks if Kerberos (TCP/UDP 88) is available on the target host.
     - Reports if the service responds, indicating a domain controller or Kerberos-enabled server.
