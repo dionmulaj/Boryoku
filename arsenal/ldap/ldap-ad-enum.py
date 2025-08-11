@@ -1,6 +1,8 @@
 PORTS = [389]
 def run(host, results, **kwargs):
     """
+    Bōryoku Framework
+    Author: Dion Mulaj
     LDAP/Active Directory Anonymous Enumerator Plugin
     - Attempts an anonymous LDAP bind to the target host (TCP/389)
     - Retrieves root DSE and basic directory info if allowed
