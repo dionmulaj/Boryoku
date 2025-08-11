@@ -199,7 +199,7 @@ This project is licensed under the Custom Non-Commercial Attribution License (CN
 ❌ Claiming authorship or removing attribution.
 <br>
 <br>
-See the [LICENSE](LICENSE.md) file for full details.
+See the [LICENSE](LICENSE) file for full details.
 
 ---
 
