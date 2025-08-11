@@ -1,4 +1,6 @@
 """
+Bōryoku Framework
+Author: Dion Mulaj
 Detects Modbus TCP on hosts and attempts basic enumeration.
 """
 import socket
